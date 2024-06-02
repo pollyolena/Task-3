@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кошик покупок</title>
+    <link rel="stylesheet" type="text/css" href="task2.css">
+</head>
+<body>
+    <div class="container">
+        <div class="shopping-list">
+            <div class="upper_part">
+                <input type="text" id="item-input" placeholder="Назва товару">
+                <button id="bl-button">Додати</button>
+            </div>
+            <table id="item-table">
+                <!-- Початкові товари будуть додані тут за допомогою JavaScript -->
+            </table>
+        </div>
+        <div class="c_right">
+          <h2>Залишилося</h2>
+          <div id="remaining-items" class="container-"></div>
+          <h2>Куплено</h2>
+          <div id="bought-items" class="container-"></div>
+        </div>
+    </div>
+    <div class="badge">
+      <div class="badg"><span><b>Buy List</b></span></div>
+      <div class="badge-content">
+        Created by: Olena
+      </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const addButton = document.getElementById('bl-button');
+      const itemInput = document.getElementById('item-input');
+      const itemTable = document.getElementById('item-table');
+      const remainingItemsContainer = document.getElementById('remaining-items');
+      const boughtItemsContainer = document.getElementById('bought-items');
+  
+      // Завантаження даних з локального сховища
+      const initialItems = JSON.parse(localStorage.getItem('shoppingList')) || [
+          { name: 'Печиво', quantity: 2, bought: false },
+          { name: 'Сир', quantity: 1, bought: false },
+          { name: 'Помідори', quantity: 2, bought: true }
+      ];
+  
+      initialItems.forEach(item => addItem(item.name, item.quantity, item.bought));
+      updateStatistics();
+  
+      function addItem(name, quantity = 1, bought = false) {
+          const newRow = document.createElement('tr');
+  
+          newRow.innerHTML = `
+              <td><span class="product ${bought ? 'bought-product' : ''}">${bought ? '<s>' + name + '</s>' : name}</span></td>
+              <td>${!bought ? '<button class="circle-button minus-button" data-tooltip="Зменшити кількість">—</button>' : ''}</td>
+              <td><span class="button">${quantity}</span></td>
+              <td>${!bought ? '<button class="circle-button plus-button" data-tooltip="Збільшити кількість">+</button>' : ''}</td>
+              <td></td>
+              <td>${bought ? '<button class="bought">Зробити не купленим</button>' : '<button class="bought">Куплено</button>'}</td>
+              <td>${!bought ? '<button class="delete-button" data-tooltip="Видалити">×</button>' : ''}</td>
+          `;
+  
+          itemTable.appendChild(newRow);
+  
+          if (!bought) {
+              const productCell = newRow.querySelector('.product');
+              productCell.addEventListener('click', () => editProductName(productCell));
+              
+              const minusButton = newRow.querySelector('.minus-button');
+              const plusButton = newRow.querySelector('.plus-button');
+              const boughtButton = newRow.querySelector('.bought');
+              const deleteButton = newRow.querySelector('.delete-button');
+  
+              minusButton.addEventListener('click', () => changeQuantity(newRow, -1));
+              plusButton.addEventListener('click', () => changeQuantity(newRow, 1));
+              boughtButton.addEventListener('click', () => toggleBought(newRow));
+              deleteButton.addEventListener('click', () => deleteItem(newRow));
+          } else {
+              newRow.querySelector('.bought').addEventListener('click', () => toggleBought(newRow));
+          }
+  
+          saveItems();
+          updateStatistics();
+      }
+  
+      function changeQuantity(row, amount) {
+          const quantityCell = row.querySelector('.button');
+          let quantity = parseInt(quantityCell.textContent);
+          quantity = Math.max(1, quantity + amount);
+          quantityCell.textContent = quantity;
+          saveItems();
+          updateStatistics();
+      }
+  
+      function toggleBought(row) {
+          const productCell = row.querySelector('.product');
+          const isBought = productCell.classList.toggle('bought-product');
+          productCell.innerHTML = isBought ? '<s>' + productCell.textContent + '</s>' : productCell.textContent.replace(/<\/?s>/g, '');
+          row.querySelector('.bought').textContent = isBought ? 'Зробити не купленим' : 'Куплено';
+  
+          if (isBought) {
+              row.querySelectorAll('button:not(.bought)').forEach(button => button.remove());
+          } else {
+              const minusButton = document.createElement('button');
+              minusButton.className = 'circle-button minus-button';
+              minusButton.setAttribute('data-tooltip', 'Зменшити кількість');
+              minusButton.textContent = '—';
+              minusButton.addEventListener('click', () => changeQuantity(row, -1));
+  
+              const plusButton = document.createElement('button');
+              plusButton.className = 'circle-button plus-button';
+              plusButton.setAttribute('data-tooltip', 'Збільшити кількість');
+              plusButton.textContent = '+';
+              plusButton.addEventListener('click', () => changeQuantity(row, 1));
+  
+              const deleteButton = document.createElement('button');
+              deleteButton.className = 'delete-button';
+              deleteButton.setAttribute('data-tooltip', 'Видалити');
+              deleteButton.textContent = '×';
+              deleteButton.addEventListener('click', () => deleteItem(row));
+  
+              row.children[1].appendChild(minusButton);
+              row.children[3].appendChild(plusButton);
+              row.children[6].appendChild(deleteButton);
+          }
+  
+          saveItems();
+          updateStatistics();
+      }
+  
+      function deleteItem(row) {
+          row.remove();
+          saveItems();
+          updateStatistics();
+      }
+  
+      function editProductName(productCell) {
+          const currentName = productCell.textContent;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = currentName;
+          input.className = 'edit-input';
+          productCell.innerHTML = '';
+          productCell.appendChild(input);
+          input.focus();
+  
+          input.addEventListener('blur', () => {
+              productCell.innerHTML = input.value;
+              saveItems();
+              updateStatistics();
+          });
+  
+          input.addEventListener('keypress', function(event) {
+              if (event.key === 'Enter') {
+                  productCell.innerHTML = input.value;
+                  saveItems();
+                  updateStatistics();
+              }
+          });
+      }
+  
+      function saveItems() {
+          const items = [];
+          document.querySelectorAll('#item-table tr').forEach(row => {
+              const name = row.querySelector('.product').textContent.replace(/<\/?s>/g, '');
+              const quantity = parseInt(row.querySelector('.button').textContent);
+              const bought = row.querySelector('.product').classList.contains('bought-product');
+              items.push({ name, quantity, bought });
+          });
+          localStorage.setItem('shoppingList', JSON.stringify(items));
+      }
+  
+      function updateStatistics() {
+          const remainingItems = [];
+          const boughtItems = [];
+  
+          document.querySelectorAll('#item-table tr').forEach(row => {
+              const name = row.querySelector('.product').textContent.replace(/<\/?s>/g, '');
+              const quantity = parseInt(row.querySelector('.button').textContent);
+              const bought = row.querySelector('.product').classList.contains('bought-product');
+  
+              if (bought) {
+                  boughtItems.push({ name, quantity });
+              } else {
+                  remainingItems.push({ name, quantity });
+              }
+          });
+  
+          remainingItemsContainer.innerHTML = remainingItems.map(item => `<div class="item"><span>${item.name}</span><span class="count">${item.quantity}</span></div>`).join('');
+          boughtItemsContainer.innerHTML = boughtItems.map(item => `<div class="item"><span><s>${item.name}</s></span><span class="count"><s>${item.quantity}</s></span></div>`).join('');
+      }
+  
+      addButton.addEventListener('click', () => {
+          const itemName = itemInput.value.trim();
+          if (itemName !== "") {
+              addItem(itemName);
+              itemInput.value = '';
+              itemInput.focus();
+          }
+      });
+  
+      itemInput.addEventListener('keypress', function(event) {
+          if (event.key === 'Enter') {
+              const itemName = itemInput.value.trim();
+              if (itemName !== "") {
+                  addItem(itemName);
+                  itemInput.value = '';
+                  itemInput.focus();
+              }
+          }
+      });
+  });  
+  </script>
+</body>
+</html>
